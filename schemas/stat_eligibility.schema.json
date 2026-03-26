@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StatEligibility",
+  "type": "object",
+  "required": ["hypothesis_ref", "stat_eligible", "win_rate_pool", "rule_iteration_pool", "backtest_pool", "reason"],
+  "properties": {
+    "hypothesis_ref": {"type": "string"},
+    "stat_eligible": {"type": "boolean"},
+    "win_rate_pool": {"type": "boolean"},
+    "rule_iteration_pool": {"type": "boolean"},
+    "backtest_pool": {"type": "boolean"},
+    "reason": {"type": "string"}
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PortfolioSnapshot",
+  "type": "object",
+  "required": ["snapshot_time", "total_aum", "currency", "cash_available", "per_market_exposure", "max_single_position_pct", "max_daily_loss_pct"],
+  "properties": {
+    "snapshot_time": {"type": "string", "format": "date-time"},
+    "total_aum": {"type": "number", "minimum": 0},
+    "currency": {"type": "string"},
+    "cash_available": {"type": "number", "minimum": 0},
+    "per_market_exposure": {
+      "type": "object",
+      "patternProperties": {
+        "^(a_stock|hk_stock|us_stock|polymarket)$": {
+          "type": "object",
+          "required": ["used", "ceiling"],
+          "properties": {
+            "used": {"type": "number", "minimum": 0},
+            "ceiling": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
+    "max_single_position_pct": {"type": "number", "minimum": 0, "maximum": 100},
+    "max_daily_loss_pct": {"type": "number", "minimum": 0, "maximum": 100}
+  }
+}

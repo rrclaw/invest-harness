@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Alert",
+  "type": "object",
+  "required": ["alert_id", "level", "market", "message", "created_at"],
+  "properties": {
+    "alert_id": {"type": "string"},
+    "level": {"type": "string", "enum": ["L1", "L2", "L3"]},
+    "market": {"type": "string", "enum": ["a_stock", "hk_stock", "us_stock", "polymarket", "global"]},
+    "message": {"type": "string"},
+    "source": {"type": "string"},
+    "hypothesis_ref": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "acknowledged": {"type": "boolean", "default": false}
+  }
+}

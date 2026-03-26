@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hypothesis",
+  "type": "object",
+  "required": [
+    "hypothesis_id", "market", "ticker", "company", "theme", "created_at",
+    "trigger_event", "core_evidence", "invalidation_conditions",
+    "observation_window", "probability", "scenario", "review_rubric",
+    "action_plan", "status", "amend_log", "_audit"
+  ],
+  "properties": {
+    "hypothesis_id": {"type": "string", "pattern": "^h_\\d{8}_[a-z]+_\\d{3}$"},
+    "market": {"type": "string", "enum": ["a_stock", "hk_stock", "us_stock", "polymarket"]},
+    "ticker": {"type": "string"},
+    "company": {"type": ["string", "null"]},
+    "theme": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "locked_at": {"type": ["string", "null"]},
+    "approved_by": {"type": ["string", "null"]},
+    "trigger_event": {"type": "string", "minLength": 1},
+    "core_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fact_ref", "summary"],
+        "properties": {
+          "fact_ref": {"type": "string"},
+          "summary": {"type": "string"}
+        }
+      },
+      "minItems": 1
+    },
+    "invalidation_conditions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "observation_window": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "string", "format": "date-time"},
+        "end": {"type": "string", "format": "date-time"}
+      }
+    },
+    "probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "odds": {"type": ["string", "null"]},
+    "win_rate_estimate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "scenario": {
+      "type": "object",
+      "required": ["bull", "base", "bear"],
+      "properties": {
+        "bull": {"$ref": "#/$defs/scenario_entry"},
+        "base": {"$ref": "#/$defs/scenario_entry"},
+        "bear": {"$ref": "#/$defs/scenario_entry"}
+      }
+    },
+    "review_rubric": {
+      "type": "object",
+      "required": ["direction", "magnitude", "time_window", "invalidation_triggered"],
+      "properties": {
+        "direction": {"type": "object"},
+        "magnitude": {"type": "object"},
+        "time_window": {"type": "object"},
+        "invalidation_triggered": {"type": "object"}
+      }
+    },
+    "action_plan": {"type": "object"},
+    "status": {"type": "string", "enum": ["draft", "locked", "unconfirmed", "amended"]},
+    "amend_log": {"type": "array", "items": {"type": "object"}},
+    "_audit": {"$ref": "#/$defs/audit_block"}
+  },
+  "$defs": {
+    "scenario_entry": {
+      "type": "object",
+      "required": ["description", "target"],
+      "properties": {
+        "description": {"type": "string"},
+        "target": {"type": "string"}
+      }
+    },
+    "audit_block": {
+      "type": "object",
+      "required": ["model_version", "prompt_hash", "prompt_ref", "fallback_used", "generated_at", "idempotency_key"],
+      "properties": {
+        "model_version": {"type": "string"},
+        "prompt_hash": {"type": "string"},
+        "prompt_ref": {"type": "string"},
+        "fallback_used": {"type": "boolean"},
+        "fallback_from": {"type": ["string", "null"]},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "idempotency_key": {"type": "string"},
+        "system_metrics": {"type": ["object", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConsensusTracking",
+  "type": "object",
+  "required": ["consensus_id", "date", "company", "tickers", "theme", "consensus_narrative", "sentiment", "confidence"],
+  "properties": {
+    "consensus_id": {"type": "string", "pattern": "^cs_\\d{8}_\\d{3}$"},
+    "date": {"type": "string", "format": "date"},
+    "company": {"type": "string"},
+    "tickers": {"type": "array", "items": {"type": "string"}},
+    "theme": {"type": "array", "items": {"type": "string"}},
+    "consensus_narrative": {"type": "string"},
+    "sentiment": {"type": "string", "enum": ["bullish", "bearish", "neutral", "mixed"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "source_refs": {"type": "array", "items": {"type": "string"}},
+    "note": {"type": ["string", "null"]}
+  }
+}

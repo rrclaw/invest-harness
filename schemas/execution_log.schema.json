@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionLog",
+  "type": "object",
+  "required": ["execution_id", "hypothesis_ref", "ticker", "action", "scenario_matched", "position_size", "status"],
+  "properties": {
+    "execution_id": {"type": "string", "pattern": "^exec_\\d{8}_[a-z]+_\\d{3}$"},
+    "hypothesis_ref": {"type": "string"},
+    "ticker": {"type": "string"},
+    "action": {"type": "string", "enum": ["buy", "sell", "hold", "no_action"]},
+    "scenario_matched": {"type": "string"},
+    "position_size": {"type": "string"},
+    "entry_price": {"type": ["number", "null"]},
+    "entry_time": {"type": ["string", "null"], "format": "date-time"},
+    "abort_triggered": {"type": "boolean"},
+    "status": {"type": "string", "enum": ["executed", "aborted", "skipped"]}
+  }
+}

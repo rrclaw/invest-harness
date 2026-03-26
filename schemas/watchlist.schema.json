@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Watchlist",
+  "type": "object",
+  "patternProperties": {
+    "^(a_stock|hk_stock|us_stock|polymarket)$": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ticker", "tier", "themes"],
+        "properties": {
+          "ticker": {"type": "string"},
+          "company": {"type": ["string", "null"]},
+          "tier": {"type": "string", "enum": ["core", "watch", "peripheral"]},
+          "themes": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

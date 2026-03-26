@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MonitorSnapshot",
+  "type": "object",
+  "required": ["snapshot_id", "snapshot_time", "data_source", "market", "hypothesis_checks", "unexpected_events", "health_check"],
+  "properties": {
+    "snapshot_id": {"type": "string"},
+    "snapshot_time": {"type": "string", "format": "date-time"},
+    "data_source": {"type": "string"},
+    "market": {"type": "string", "enum": ["a_stock", "hk_stock", "us_stock", "polymarket"]},
+    "hypothesis_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hypothesis_ref", "trigger_status", "invalidation_status"],
+        "properties": {
+          "hypothesis_ref": {"type": "string"},
+          "trigger_status": {"type": "string", "enum": ["triggered", "not_triggered", "partial"]},
+          "trigger_detail": {"type": ["string", "null"]},
+          "invalidation_status": {"type": "string", "enum": ["triggered", "not_triggered"]},
+          "invalidation_detail": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "unexpected_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_type", "ticker", "observed_value", "alert_level"],
+        "properties": {
+          "event_type": {"type": "string"},
+          "ticker": {"type": "string"},
+          "observed_value": {"type": "string"},
+          "alert_level": {"type": "string", "enum": ["L1", "L2", "L3"]},
+          "hypothesis_ref": {"type": ["string", "null"]},
+          "which_invalidation_condition": {"type": ["string", "null"]},
+          "evidence_ref": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "market_summary": {"type": ["string", "null"]},
+    "health_check": {
+      "type": "object",
+      "required": ["consecutive_failures", "last_heartbeat", "circuit_broken", "adapter_status"],
+      "properties": {
+        "consecutive_failures": {"type": "integer", "minimum": 0},
+        "last_heartbeat": {"type": "string", "format": "date-time"},
+        "circuit_broken": {"type": "boolean"},
+        "adapter_status": {"type": "string", "enum": ["healthy", "degraded", "failing", "dead"]}
+      }
+    }
+  }
+}

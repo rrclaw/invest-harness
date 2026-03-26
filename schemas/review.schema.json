@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PostMarketVerification",
+  "type": "object",
+  "required": [
+    "verify_id", "hypothesis_ref", "market", "exchange_date", "ticker",
+    "verified_at", "data_source", "stat_eligible", "scenario_matched",
+    "dimensions", "invalidation_review", "action_review", "verdict", "score", "_audit"
+  ],
+  "properties": {
+    "verify_id": {"type": "string"},
+    "hypothesis_ref": {"type": "string"},
+    "market": {"type": "string", "enum": ["a_stock", "hk_stock", "us_stock", "polymarket"]},
+    "exchange_date": {"type": "string", "format": "date"},
+    "ticker": {"type": "string"},
+    "verified_at": {"type": "string", "format": "date-time"},
+    "data_source": {"type": "string"},
+    "stat_eligible": {"type": "boolean"},
+    "scenario_matched": {"type": "string", "enum": ["bull", "base", "bear"]},
+    "dimensions": {
+      "type": "object",
+      "required": ["direction", "magnitude", "time_window", "cause"],
+      "properties": {
+        "direction": {"type": "object"},
+        "magnitude": {"type": "object"},
+        "time_window": {"type": "object"},
+        "cause": {"type": "object"}
+      }
+    },
+    "invalidation_review": {"type": "object"},
+    "action_review": {"type": "object"},
+    "verdict": {"type": "string", "enum": ["hit", "partial_hit", "miss", "invalidated", "unconfirmed"]},
+    "score": {
+      "type": "object",
+      "required": ["earned", "possible"],
+      "properties": {
+        "direction": {"type": "integer"},
+        "magnitude": {"type": "integer"},
+        "time_window": {"type": "integer"},
+        "cause": {"type": "integer"},
+        "earned": {"type": "integer"},
+        "possible": {"type": "integer"},
+        "pending": {"type": "integer"}
+      }
+    },
+    "rule_violations": {"type": "array"},
+    "regime_shift_alerts": {"type": "array"},
+    "_audit": {"type": "object"}
+  }
+}

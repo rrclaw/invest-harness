@@ -1,0 +1,21 @@
+{
+  "a_stock": {
+    "source": "tushare_trade_cal",
+    "half_day_close": "11:30",
+    "refresh_interval_days": 7
+  },
+  "hk_stock": {
+    "source": "manual",
+    "special_halts": ["typhoon_signal_8", "black_rainstorm"],
+    "half_day_dates": ["2026-12-24", "2026-12-31"]
+  },
+  "us_stock": {
+    "source": "manual",
+    "half_day_close": "13:00",
+    "half_day_dates": ["2026-11-27", "2026-12-24"]
+  },
+  "polymarket": {
+    "always_open": true,
+    "calendar_bypass": true
+  }
+}

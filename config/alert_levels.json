@@ -1,0 +1,20 @@
+{
+  "L1": {
+    "semantics": "System-level fault",
+    "machine_action": "SUSPENDED - stop polling and dispatch for market",
+    "human_action": "Must troubleshoot and manually restore",
+    "examples": ["API blocked", "DB deadlock", "retry exhausted", "LLM all offline"]
+  },
+  "L2": {
+    "semantics": "Business logic anomaly",
+    "machine_action": "Block buy orders, switch to observe/liquidate mode",
+    "human_action": "Adjudicate within the day",
+    "examples": ["broad market crash", "hypothesis unconfirmed timeout", "invalidation triggered", "data feed degraded 30min"]
+  },
+  "L3": {
+    "semantics": "Information flow",
+    "machine_action": "No blocking action",
+    "human_action": "Can defer review",
+    "examples": ["fact ingested", "snapshot completed", "routine state change", "backup success"]
+  }
+}

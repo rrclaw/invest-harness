@@ -1,0 +1,80 @@
+{
+  "a_stock": {
+    "timezone": "Asia/Shanghai",
+    "open": "09:30",
+    "close": "15:00",
+    "hypothesis_lock": "08:45",
+    "pre_market_cron": "07:30",
+    "post_market_cron": "15:30",
+    "trading_days": "mon-fri",
+    "holidays_source": "tushare_trade_cal",
+    "dst": false,
+    "snapshots": {
+      "initial_check": "09:45",
+      "mid_session": ["11:00", "13:30"],
+      "close_snapshot": "15:05"
+    },
+    "polling_interval_minutes": 3,
+    "risk_triggers": {
+      "index_rapid_drop": {"window_minutes": 30, "threshold_pct": -2.0},
+      "stock_rapid_drop": {"window_minutes": 15, "threshold_pct": -5.0, "volume_multiplier": 3.0},
+      "limit_break": {"description": "Hit limit-up then pulled back > 3%"}
+    }
+  },
+  "hk_stock": {
+    "timezone": "Asia/Hong_Kong",
+    "open": "09:30",
+    "close": "16:00",
+    "hypothesis_lock": "09:15",
+    "pre_market_cron": "08:00",
+    "post_market_cron": "16:30",
+    "trading_days": "mon-fri",
+    "holidays_source": "manual",
+    "dst": false,
+    "special_halts": ["typhoon_signal_8", "black_rainstorm"],
+    "snapshots": {
+      "initial_check": "09:45",
+      "mid_session": ["12:30", "14:30"],
+      "close_snapshot": "16:05"
+    },
+    "polling_interval_minutes": 3,
+    "risk_triggers": {
+      "index_rapid_drop": {"window_minutes": 30, "threshold_pct": -2.0},
+      "stock_rapid_drop": {"window_minutes": 15, "threshold_pct": -5.0, "volume_multiplier": 3.0}
+    }
+  },
+  "us_stock": {
+    "timezone": "America/New_York",
+    "open": "09:30",
+    "close": "16:00",
+    "hypothesis_lock": "08:30",
+    "pre_market_cron": "08:00",
+    "post_market_cron": "16:30",
+    "trading_days": "mon-fri",
+    "holidays_source": "manual",
+    "dst": true,
+    "snapshots": {
+      "initial_check": "09:45",
+      "mid_session": ["12:00", "14:30"],
+      "close_snapshot": "16:05"
+    },
+    "polling_interval_minutes": 5,
+    "risk_triggers": {
+      "index_rapid_drop": {"window_minutes": 30, "threshold_pct": -2.0},
+      "stock_rapid_drop": {"window_minutes": 15, "threshold_pct": -5.0, "volume_multiplier": 3.0}
+    }
+  },
+  "polymarket": {
+    "timezone": "UTC",
+    "always_open": true,
+    "hypothesis_lock": null,
+    "review_cron": "22:00",
+    "trading_days": "all",
+    "calendar_bypass": true,
+    "snapshots": null,
+    "polling_interval_minutes": 5,
+    "risk_triggers": {
+      "odds_slope": {"window_minutes": 60, "threshold_pct": 10.0}
+    }
+  }
+}

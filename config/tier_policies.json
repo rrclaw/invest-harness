@@ -1,0 +1,20 @@
+{
+  "core": {
+    "polling_multiplier": 1.0,
+    "hypothesis_mode": "always",
+    "alert_on_anomaly": "L2",
+    "snapshot_priority": "high"
+  },
+  "watch": {
+    "polling_multiplier": 2.0,
+    "hypothesis_mode": "catalyst_only",
+    "alert_on_anomaly": "L3",
+    "snapshot_priority": "medium"
+  },
+  "peripheral": {
+    "polling_multiplier": 3.0,
+    "hypothesis_mode": "human_request_only",
+    "alert_on_anomaly": "L3_extreme_only",
+    "snapshot_priority": "low"
+  }
+}

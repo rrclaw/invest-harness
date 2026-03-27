@@ -11,6 +11,10 @@ from adapters.market_data import MarketDataAdapter
 def get_adapter(market: str, **kwargs) -> MarketDataAdapter:
     """Return the appropriate adapter for a given market.
 
+    Returns a lazy instance -- no network connectivity check is performed.
+    The adapter will only contact its data source when a method like
+    ``get_quote()`` or ``get_daily_bars()`` is actually called.
+
     Args:
         market: One of 'a_stock', 'hk_stock', 'us_stock', 'polymarket'.
         **kwargs: Adapter-specific config (e.g., tushare_token, polymarket_api_url).

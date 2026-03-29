@@ -56,6 +56,11 @@ def route_inbound_message(
         "executed": False,
     }
     if execute:
+        # Suppress transport notifications: the calling agent (OpenClaw)
+        # handles Feishu delivery from our stdout, so harness must not
+        # double-deliver via its own transport.
+        if "--no-notify" not in argv:
+            argv = argv + ["--no-notify"]
         result["result"] = run_cli(argv, project_root=project_root)
         result["executed"] = True
     return result

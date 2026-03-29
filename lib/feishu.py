@@ -10,6 +10,7 @@ Six groups as permission-isolated interaction interfaces:
 """
 
 import hashlib
+import json
 import sqlite3
 from datetime import datetime, timezone
 
@@ -103,7 +104,7 @@ class FeishuClient:
                 json={
                     "receive_id": group_id,
                     "msg_type": "text",
-                    "content": f'{{"text": "{content}"}}',
+                    "content": json.dumps({"text": content}),
                 },
                 timeout=10,
             )

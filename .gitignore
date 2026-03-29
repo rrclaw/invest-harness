@@ -52,6 +52,10 @@ knowledge/curated/**
 !knowledge/curated/
 !knowledge/curated/.gitkeep
 
+# Knowledge vector indexes (local rebuild)
+knowledge/chroma_db/
+knowledge/index/
+
 # IDE
 .vscode/
 .idea/

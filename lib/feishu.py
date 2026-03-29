@@ -16,12 +16,12 @@ from datetime import datetime, timezone
 import requests
 
 FEISHU_GROUPS = {
-    "tailmon": "oc_7bd7e7096c9a3be8e686ac70f6dcac5b",
-    "agumon": "oc_185c03a6d083dc9dd99d3ed24361e171",
-    "gabumon": "oc_cd1a764eb1ac0b024462119e0d402210",
-    "gomamon": "oc_e3bf797d93e4a3365fc0cdd9b99b429b",
-    "kabuterimon": "oc_5c9ae741c8b54919b3d87b832493d6b5",
-    "patamon": "oc_62e97e4c8e6a6e90738ce6e76a4dbd62",
+    "tailmon": "oc_replace_tailmon",
+    "agumon": "oc_replace_agumon",
+    "gabumon": "oc_replace_gabumon",
+    "gomamon": "oc_replace_gomamon",
+    "kabuterimon": "oc_replace_kabuterimon",
+    "patamon": "oc_replace_patamon",
 }
 
 DEDUPE_WINDOW_SECONDS = 300
@@ -30,11 +30,18 @@ DEDUPE_WINDOW_SECONDS = 300
 class FeishuClient:
     """Feishu messaging with group routing and content dedup."""
 
-    def __init__(self, app_id: str, app_secret: str, conn: sqlite3.Connection):
+    def __init__(
+        self,
+        app_id: str,
+        app_secret: str,
+        conn: sqlite3.Connection,
+        group_map: dict[str, str] | None = None,
+    ):
         self._app_id = app_id
         self._app_secret = app_secret
         self._conn = conn
         self._token: str | None = None
+        self._group_map = dict(group_map or FEISHU_GROUPS)
 
     def _get_token(self) -> str:
         """Get or refresh tenant access token."""
@@ -76,10 +83,12 @@ class FeishuClient:
 
         Returns dict with 'sent' bool and optional 'reason'.
         """
-        if group_name not in FEISHU_GROUPS:
+        if group_name not in self._group_map:
             raise ValueError(f"Unknown group: {group_name!r}")
 
-        group_id = FEISHU_GROUPS[group_name]
+        group_id = self._group_map[group_name]
+        if not group_id or group_id.startswith("oc_replace_"):
+            return {"sent": False, "reason": "unconfigured_group", "group": group_name}
         content_hash = self._content_hash(content)
 
         if self._is_deduped(content_hash, group_id):

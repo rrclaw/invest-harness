@@ -1,0 +1,42 @@
+{
+  "a_stock": [
+    {
+      "ticker": "000001.SZ",
+      "company": "Example A Share",
+      "tier": "watch",
+      "themes": [
+        "example_theme"
+      ]
+    }
+  ],
+  "hk_stock": [
+    {
+      "ticker": "0700.HK",
+      "company": "Example HK Share",
+      "tier": "watch",
+      "themes": [
+        "internet"
+      ]
+    }
+  ],
+  "us_stock": [
+    {
+      "ticker": "AAPL",
+      "company": "Example US Share",
+      "tier": "core",
+      "themes": [
+        "consumer_hardware"
+      ]
+    }
+  ],
+  "polymarket": [
+    {
+      "ticker": "example-event-market",
+      "company": null,
+      "tier": "watch",
+      "themes": [
+        "prediction_market"
+      ]
+    }
+  ]
+}

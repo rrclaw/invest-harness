@@ -100,3 +100,57 @@ def test_effective_interval_with_tier():
     assert daemon._effective_interval(3, 1.0) == 3.0
     assert daemon._effective_interval(3, 2.0) == 6.0
     assert daemon._effective_interval(5, 3.0) == 15.0
+
+
+def test_handle_health_status_emits_alert_and_notifies():
+    notifier = MagicMock()
+    alert_mgr = MagicMock()
+    alert_mgr.fire.return_value = {"alert_id": "alert_1", "level": "L1", "market": "a_stock", "message": "bad", "source": "polling_daemon"}
+    daemon = PollingDaemon(
+        market="a_stock",
+        config={},
+        adapter=MagicMock(),
+        alert_mgr=alert_mgr,
+        state_machine=MagicMock(),
+        notifier=notifier,
+    )
+
+    alert = daemon.handle_health_status(
+        {
+            "adapter_status": "dead",
+            "consecutive_failures": 10,
+            "alert_level": "L1",
+        }
+    )
+
+    assert alert["level"] == "L1"
+    alert_mgr.fire.assert_called_once()
+    notifier.send_alert.assert_called_once()
+
+
+def test_emit_risk_trigger_alerts_returns_alerts():
+    notifier = MagicMock()
+    alert_mgr = MagicMock()
+    alert_mgr.fire.side_effect = [
+        {"alert_id": "alert_1", "level": "L2", "market": "a_stock", "message": "one", "source": "polling_daemon"},
+        {"alert_id": "alert_2", "level": "L2", "market": "a_stock", "message": "two", "source": "polling_daemon"},
+    ]
+    daemon = PollingDaemon(
+        market="a_stock",
+        config={},
+        adapter=MagicMock(),
+        alert_mgr=alert_mgr,
+        state_machine=MagicMock(),
+        notifier=notifier,
+    )
+
+    alerts = daemon.emit_risk_trigger_alerts(
+        [
+            {"event_type": "index_rapid_drop", "ticker": "000001.SH", "observed_value": "drop", "alert_level": "L2"},
+            {"event_type": "stock_rapid_drop", "ticker": "688256.SH", "observed_value": "drop", "alert_level": "L2"},
+        ]
+    )
+
+    assert len(alerts) == 2
+    assert alert_mgr.fire.call_count == 2
+    assert notifier.send_alert.call_count == 2

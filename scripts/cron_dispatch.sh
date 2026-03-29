@@ -34,11 +34,14 @@ is_trading_day() {
     if [ "$market" = "polymarket" ] || [ "$market" = "global" ]; then
         return 0
     fi
-    # Check exchange_calendar.json via Python
+    # Check layered exchange_calendar.json via Python
     "$PYTHON" -c "
-import json, sys
-from datetime import date, datetime
-cal = json.load(open('${HARNESS_DIR}/config/exchange_calendar.json'))
+import sys
+from datetime import datetime
+from pathlib import Path
+from lib.config import load_json_config
+
+cal = load_json_config(Path('${HARNESS_DIR}') / 'config', 'exchange_calendar')
 market = '${market}'
 today = '${TODAY}'
 weekday = datetime.strptime(today, '%Y-%m-%d').weekday()
@@ -69,8 +72,17 @@ print(hours)
 "
 }
 
+# --- Known Tasks ---
+KNOWN_TASKS="pre_market lock_check polling post_market nightly_review info_digest chroma_decay next_day_draft cold_backup rule_audit"
+
 # --- Main Dispatch ---
 log "START: task=${TASK} market=${MARKET} date=${TODAY}"
+
+# Validate task name before calendar gate
+if ! echo "$KNOWN_TASKS" | grep -qw "$TASK"; then
+    log "ERROR: Unknown task: ${TASK}"
+    exit 1
+fi
 
 # Calendar gate
 if [ "$TASK" != "cold_backup" ] && [ "$TASK" != "rule_audit" ] && [ "$TASK" != "chroma_decay" ]; then
@@ -91,17 +103,8 @@ case "$TASK" in
         ;;
     lock_check)
         log "Running hypothesis lock check for ${MARKET}"
-        "$PYTHON" -c "
-from lib.db import get_connection, init_db
-from lib.hypothesis import HypothesisManager
-from scripts.lock_hypothesis import check_and_lock
-conn = get_connection('harness.db')
-init_db(conn)
-mgr = HypothesisManager('hypotheses')
-result = check_and_lock(mgr, '${TODAY}', '${MARKET}')
-print(result)
-conn.close()
-" 2>&1 | tee -a "$LOG_FILE"
+        "$PYTHON" -m scripts.harness_cli --project-root "$HARNESS_DIR" lock \
+            --date "$TODAY" --market "$MARKET" --deadline-check 2>&1 | tee -a "$LOG_FILE"
         ;;
     polling)
         log "Starting polling daemon for ${MARKET}"
@@ -113,7 +116,8 @@ conn.close()
         ;;
     nightly_review)
         log "Running nightly review"
-        # In production: dispatch review + contrarian via conductor
+        "$PYTHON" -m scripts.harness_cli --project-root "$HARNESS_DIR" review \
+            --date "$TODAY" 2>&1 | tee -a "$LOG_FILE"
         ;;
     info_digest)
         log "Running info digest compilation"
@@ -126,11 +130,12 @@ conn.close()
         ;;
     cold_backup)
         log "Running weekly cold backup"
-        "$PYTHON" -m scripts.cold_backup 2>&1 | tee -a "$LOG_FILE"
+        "$PYTHON" -m scripts.harness_cli --project-root "$HARNESS_DIR" backup 2>&1 | tee -a "$LOG_FILE"
         ;;
     rule_audit)
         log "Running weekly rule health audit"
-        "$PYTHON" -m scripts.rule_audit 2>&1 | tee -a "$LOG_FILE"
+        "$PYTHON" -m scripts.harness_cli --project-root "$HARNESS_DIR" rule_audit \
+            --date "$TODAY" 2>&1 | tee -a "$LOG_FILE"
         ;;
     *)
         log "ERROR: Unknown task: ${TASK}"

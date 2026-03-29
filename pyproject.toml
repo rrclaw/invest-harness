@@ -9,7 +9,11 @@ dependencies = [
     "tushare>=1.4.0",
     "yfinance>=0.2.30",
     "requests>=2.31.0",
+    "PyYAML>=6.0",
 ]
+
+[project.scripts]
+invest-harness = "scripts.harness_cli:main"
 
 [project.optional-dependencies]
 dev = [

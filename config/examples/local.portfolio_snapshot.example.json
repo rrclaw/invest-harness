@@ -1,0 +1,26 @@
+{
+  "snapshot_time": "2026-01-01T00:00:00+08:00",
+  "total_aum": 1000000,
+  "currency": "USD",
+  "cash_available": 300000,
+  "per_market_exposure": {
+    "a_stock": {
+      "used": 200000,
+      "ceiling": 300000
+    },
+    "hk_stock": {
+      "used": 100000,
+      "ceiling": 200000
+    },
+    "us_stock": {
+      "used": 150000,
+      "ceiling": 300000
+    },
+    "polymarket": {
+      "used": 10000,
+      "ceiling": 50000
+    }
+  },
+  "max_single_position_pct": 10,
+  "max_daily_loss_pct": 3
+}

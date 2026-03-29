@@ -12,6 +12,15 @@ from lib.rules import RuleEngine
 from lib.feishu import FeishuClient, FEISHU_GROUPS
 from unittest.mock import patch, MagicMock
 
+TEST_GROUP_MAP = {
+    "tailmon": "oc_test_tailmon",
+    "agumon": "oc_test_agumon",
+    "gabumon": "oc_test_gabumon",
+    "gomamon": "oc_test_gomamon",
+    "kabuterimon": "oc_test_kabuterimon",
+    "patamon": "oc_test_patamon",
+}
+
 
 def _make_full_hypothesis():
     return {
@@ -163,7 +172,7 @@ def test_feishu_routing_integration(tmp_path):
 
     with patch("lib.feishu.requests.post") as mock_post:
         mock_post.return_value = MagicMock(status_code=200, json=lambda: {"code": 0})
-        client = FeishuClient("test", "test", conn)
+        client = FeishuClient("test", "test", conn, group_map=TEST_GROUP_MAP)
 
         # Approval -> Gabumon
         target = client.route_approval()

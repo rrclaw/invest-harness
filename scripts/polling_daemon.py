@@ -62,7 +62,7 @@ class HealthTracker:
 class PollingDaemon:
     """Main polling loop. Instantiated per market."""
 
-    def __init__(self, market, config, adapter, alert_mgr, state_machine):
+    def __init__(self, market, config, adapter, alert_mgr, state_machine, notifier=None):
         self._market = market
         self._config = config
         self._adapter = adapter
@@ -70,6 +70,7 @@ class PollingDaemon:
         self._sm = state_machine
         self._health = HealthTracker()
         self._running = False
+        self._notifier = notifier
 
     def _effective_interval(self, base_minutes: float, multiplier: float) -> float:
         return base_minutes * multiplier
@@ -104,6 +105,53 @@ class PollingDaemon:
                     "alert_level": "L2",
                 })
         return events
+
+    def _emit_alert(
+        self,
+        *,
+        level: str,
+        message: str,
+        source: str,
+        hypothesis_ref: str | None = None,
+    ) -> dict:
+        alert = self._alert_mgr.fire(
+            level=level,
+            market=self._market,
+            message=message,
+            source=source,
+            hypothesis_ref=hypothesis_ref,
+        )
+        if self._notifier is not None:
+            self._notifier.send_alert(alert)
+        return alert
+
+    def handle_health_status(self, status: dict) -> dict | None:
+        """Persist and notify health-derived alerts when escalation is reached."""
+        level = status.get("alert_level")
+        if not level:
+            return None
+        message = (
+            f"{self._market} adapter status={status['adapter_status']} "
+            f"failures={status['consecutive_failures']}"
+        )
+        return self._emit_alert(level=level, message=message, source="polling_daemon")
+
+    def emit_risk_trigger_alerts(self, events: list[dict]) -> list[dict]:
+        """Persist and notify risk-trigger events."""
+        alerts = []
+        for event in events:
+            message = (
+                f"{event['event_type']} detected for {event['ticker']}: "
+                f"{event['observed_value']}"
+            )
+            alerts.append(
+                self._emit_alert(
+                    level=event["alert_level"],
+                    message=message,
+                    source="polling_daemon",
+                )
+            )
+        return alerts
 
     def stop(self) -> None:
         self._running = False

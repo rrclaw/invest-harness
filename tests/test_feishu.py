@@ -4,6 +4,15 @@ from unittest.mock import patch, MagicMock
 from lib.db import get_connection, init_db
 from lib.feishu import FeishuClient, FEISHU_GROUPS
 
+TEST_GROUP_MAP = {
+    "tailmon": "oc_test_tailmon",
+    "agumon": "oc_test_agumon",
+    "gabumon": "oc_test_gabumon",
+    "gomamon": "oc_test_gomamon",
+    "kabuterimon": "oc_test_kabuterimon",
+    "patamon": "oc_test_patamon",
+}
+
 
 def test_group_ids_defined():
     assert "tailmon" in FEISHU_GROUPS
@@ -22,7 +31,21 @@ def client(tmp_harness):
         app_id="test_app",
         app_secret="test_secret",
         conn=conn,
+        group_map=TEST_GROUP_MAP,
     )
+
+
+def test_send_unconfigured_group_returns_reason(tmp_harness):
+    conn = get_connection(tmp_harness)
+    init_db(conn)
+    client = FeishuClient(
+        app_id="test_app",
+        app_secret="test_secret",
+        conn=conn,
+    )
+    result = client.send_to_group("gomamon", "Test message")
+    assert result["sent"] is False
+    assert result["reason"] == "unconfigured_group"
 
 
 def test_send_message(client):

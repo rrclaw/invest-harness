@@ -14,7 +14,11 @@ backups/
 
 # Environment
 config/.env
+config/local/
 .env
+
+# macOS / Finder
+.DS_Store
 
 # Python
 __pycache__/
@@ -25,13 +29,28 @@ __pycache__/
 dist/
 build/
 
-# Large raw binaries (PDFs, images)
-knowledge/raw/**/*.pdf
-knowledge/raw/**/*.png
-knowledge/raw/**/*.jpg
-# Keep extracted markdown and metadata
+# Runtime outputs
+hypotheses/**
+!hypotheses/.gitkeep
+reviews/**
+!reviews/.gitkeep
+
+# Public knowledge scaffold; keep the directory structure, ignore local content
+knowledge/raw/**
+!knowledge/raw/
+!knowledge/raw/.gitkeep
+!knowledge/raw/**/
+!knowledge/raw/**/seen_hashes.json
 !knowledge/raw/**/*.extracted.md
 !knowledge/raw/**/*.meta.json
+
+knowledge/normalized/**
+!knowledge/normalized/
+!knowledge/normalized/.gitkeep
+
+knowledge/curated/**
+!knowledge/curated/
+!knowledge/curated/.gitkeep
 
 # IDE
 .vscode/

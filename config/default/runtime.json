@@ -1,0 +1,86 @@
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "set-in-config-local-or-env",
+    "api_key_env": "LLM_API_KEY",
+    "base_url_env": "LLM_BASE_URL"
+  },
+  "persona": {
+    "name": "Invest Harness",
+    "goal": "Run a portable investment research workflow without local-only assumptions."
+  },
+  "knowledge": {
+    "canonical_pipeline_root": "knowledge",
+    "bridge_sources": [],
+    "historical_inputs": [],
+    "read_only_inputs": []
+  },
+  "markets": {
+    "enabled": [
+      "a_stock",
+      "hk_stock",
+      "us_stock",
+      "polymarket"
+    ],
+    "adapters": {
+      "a_stock": "tushare",
+      "hk_stock": "yahoo",
+      "us_stock": "yahoo",
+      "polymarket": "polymarket"
+    }
+  },
+  "rules": {
+    "default_rule_files": [
+      "rules/universal.md",
+      "rules/a_stock.md",
+      "rules/hk_stock.md",
+      "rules/us_stock.md",
+      "rules/polymarket.md"
+    ]
+  },
+  "feedback": {
+    "feedback_system": "human_in_loop",
+    "review_timezone": "Asia/Shanghai",
+    "retrospective_time": "22:30",
+    "milestone_mode": "manual"
+  },
+  "transport": {
+    "type": "noop",
+    "channel": "none",
+    "routing": {
+      "approval": {
+        "target": "gabumon"
+      },
+      "broadcast": {
+        "target": "gomamon"
+      },
+      "review": {
+        "target": "gomamon"
+      },
+      "alert": {
+        "default_target": "gomamon",
+        "level_targets": {
+          "L1": "kabuterimon",
+          "L2": "gomamon",
+          "L3": "gomamon"
+        }
+      }
+    },
+    "direct_feishu": {
+      "app_id_env": "FEISHU_APP_ID",
+      "app_secret_env": "FEISHU_APP_SECRET"
+    },
+    "openclaw": {
+      "command": "openclaw",
+      "target_prefix": "chat",
+      "timeout_seconds": 15
+    }
+  },
+  "openclaw": {
+    "plugin_path": null,
+    "workspace_root": null
+  },
+  "feishu": {
+    "group_map": {}
+  }
+}

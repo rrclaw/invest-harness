@@ -2,17 +2,22 @@
 
 Design principles:
 1. All JSON configs validated via schema on load -- fail fast, no dirty config.
-2. python-dotenv loads .env; missing required vars raise explicit KeyError.
+2. python-dotenv loads config/local/.env; missing required vars raise explicit
+   FileNotFoundError so secrets never leak into public defaults.
 3. Module-level cache -- configs loaded once per HarnessConfig instance lifetime.
 4. Explicit file-name-based loading -- no directory scanning or magic discovery.
-5. Load order: markets -> tier_policies -> exchange_calendar -> alert_levels
-               -> portfolio_snapshot -> watchlist  (independent, but explicit).
+5. Layered layout:
+   - config/default/  -> public, shareable defaults
+   - config/examples/ -> copy templates only, not loaded at runtime
+   - config/local/    -> local overrides, ignored by git
+6. Load order: markets -> tier_policies -> exchange_calendar -> alert_levels
+               -> portfolio_snapshot -> watchlist -> runtime
 """
 
 from __future__ import annotations
 
 import json
-import os
+from copy import deepcopy
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -37,7 +42,7 @@ _SCHEMA_MAP: dict[str, str] = {
     "portfolio_snapshot": "portfolio_snapshot",
 }
 
-# The 6 config files, in explicit load order.
+# The core config files, in explicit load order.
 _CONFIG_FILES = [
     "markets",
     "tier_policies",
@@ -45,7 +50,86 @@ _CONFIG_FILES = [
     "alert_levels",
     "portfolio_snapshot",
     "watchlist",
+    "runtime",
 ]
+
+_DEFAULT_DIR_NAME = "default"
+_LOCAL_DIR_NAME = "local"
+_EXAMPLES_DIR_NAME = "examples"
+
+
+def _is_layered_layout(config_dir: Path) -> bool:
+    return (
+        (config_dir / _DEFAULT_DIR_NAME).is_dir()
+        or (config_dir / _LOCAL_DIR_NAME).is_dir()
+        or (config_dir / _EXAMPLES_DIR_NAME).is_dir()
+    )
+
+
+def _load_json(path: Path) -> dict:
+    with open(path) as f:
+        return json.load(f)
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge dicts. Lists/scalars are replaced by override."""
+    merged = deepcopy(base)
+    for key, value in override.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, dict) and isinstance(value, dict):
+            merged[key] = _deep_merge(base_value, value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _validate_config(name: str, data: dict) -> None:
+    schema_name = _SCHEMA_MAP.get(name)
+    if schema_name is None:
+        return
+    try:
+        validate(data, schema_name)
+    except ValidationError as e:
+        raise ConfigValidationError(name, e) from e
+
+
+def load_json_config(
+    config_dir: str | Path,
+    name: str,
+    *,
+    required: bool = True,
+) -> dict | None:
+    """Load one config file from layered config/default + config/local.
+
+    Examples are intentionally excluded from runtime loading so public template
+    values never affect local execution.
+    """
+    root = Path(config_dir)
+
+    if _is_layered_layout(root):
+        default_path = root / _DEFAULT_DIR_NAME / f"{name}.json"
+        local_path = root / _LOCAL_DIR_NAME / f"{name}.json"
+
+        if not default_path.exists():
+            if required:
+                raise FileNotFoundError(f"Config file not found: {default_path}")
+            return None
+
+        data = _load_json(default_path)
+        if local_path.exists():
+            data = _deep_merge(data, _load_json(local_path))
+        _validate_config(name, data)
+        return data
+
+    legacy_path = root / f"{name}.json"
+    if not legacy_path.exists():
+        if required:
+            raise FileNotFoundError(f"Config file not found: {legacy_path}")
+        return None
+
+    data = _load_json(legacy_path)
+    _validate_config(name, data)
+    return data
 
 
 class HarnessConfig:
@@ -75,12 +159,26 @@ class HarnessConfig:
     # ------------------------------------------------------------------
 
     def _load_env(self) -> None:
-        env_path = self._dir / ".env"
-        if not env_path.exists():
-            raise FileNotFoundError(
-                f".env file not found at {env_path}. "
-                f"Copy config/.env.example to config/.env and fill in values."
-            )
+        if _is_layered_layout(self._dir):
+            layered_env_path = self._dir / _LOCAL_DIR_NAME / ".env"
+            legacy_env_path = self._dir / ".env"
+            if layered_env_path.exists():
+                env_path = layered_env_path
+            elif legacy_env_path.exists():
+                env_path = legacy_env_path
+            else:
+                raise FileNotFoundError(
+                    f".env file not found at {layered_env_path}. "
+                    "Copy config/examples/.env.example to config/local/.env "
+                    "and fill in local values."
+                )
+        else:
+            env_path = self._dir / ".env"
+            if not env_path.exists():
+                raise FileNotFoundError(
+                    f".env file not found at {env_path}. "
+                    f"Copy config/.env.example to config/.env and fill in values."
+                )
         self._env = {
             k: v for k, v in dotenv_values(env_path).items() if v is not None
         }
@@ -94,7 +192,7 @@ class HarnessConfig:
         if key not in self._env:
             raise KeyError(
                 f"Required environment variable {key!r} not found in .env. "
-                f"Add it to config/.env."
+                "Add it to config/local/.env."
             )
         return self._env[key]
 
@@ -103,25 +201,12 @@ class HarnessConfig:
     # ------------------------------------------------------------------
 
     def _load_and_validate(self, name: str) -> dict:
-        """Load a JSON config by explicit name. Validate against schema if one exists."""
+        """Load a JSON config by explicit name."""
         if name in self._cache:
             return self._cache[name]
-
-        path = self._dir / f"{name}.json"
-        if not path.exists():
-            raise FileNotFoundError(f"Config file not found: {path}")
-
-        with open(path) as f:
-            data = json.load(f)
-
-        # Schema validation for configs that have a corresponding schema
-        schema_name = _SCHEMA_MAP.get(name)
-        if schema_name is not None:
-            try:
-                validate(data, schema_name)
-            except ValidationError as e:
-                raise ConfigValidationError(name, e) from e
-
+        data = load_json_config(self._dir, name)
+        if data is None:
+            raise FileNotFoundError(f"Config file not found: {name}")
         self._cache[name] = data
         return data
 
@@ -152,6 +237,10 @@ class HarnessConfig:
     @property
     def portfolio_snapshot(self) -> dict:
         return self._cache["portfolio_snapshot"]
+
+    @property
+    def runtime(self) -> dict:
+        return self._cache["runtime"]
 
     # ------------------------------------------------------------------
     # Computed helpers

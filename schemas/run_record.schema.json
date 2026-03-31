@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["run_id", "batch_id", "phase", "market", "status"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "batch_id": {"type": "string"},
+    "idempotency_key": {"type": "string"},
+    "phase": {"enum": ["scan", "verify", "review", "feedback", "watchlist_change"]},
+    "market": {"type": "string"},
+    "trigger_source": {"enum": ["cron", "manual", "event"]},
+    "status": {"enum": ["pending", "running", "completed", "failed", "skipped"]},
+    "agent_trace": {"type": "array"},
+    "artifacts": {"type": "object"},
+    "error": {"type": ["string", "null"]},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "completed_at": {"type": ["string", "null"]}
+  }
+}

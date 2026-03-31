@@ -48,6 +48,8 @@ def add_ticker(
     market: str,
     added_by: str = "user",
     name: str | None = None,
+    tier: str = "watch",
+    themes: list[str] | None = None,
 ) -> dict:
     """Add ticker to watchlist. Returns {"added": True/False, ...}. Noop if exists."""
     data = _load(watchlist_path)
@@ -59,11 +61,10 @@ def add_ticker(
 
     entry: dict = {
         "ticker": ticker,
-        "added_at": date.today().isoformat(),
-        "added_by": added_by,
+        "company": name,
+        "tier": tier,
+        "themes": themes or [],
     }
-    if name is not None:
-        entry["name"] = name
 
     entries.append(entry)
     _save(watchlist_path, data)

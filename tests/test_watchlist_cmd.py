@@ -46,9 +46,9 @@ def test_add_new_ticker(tmp_path):
     assert len(data["a_stock"]) == 1
     entry = data["a_stock"][0]
     assert entry["ticker"] == "600519.SH"
-    assert entry["name"] == "贵州茅台"
-    assert entry["added_by"] == "user"
-    assert "added_at" in entry
+    assert entry["company"] == "贵州茅台"
+    assert entry["tier"] == "watch"
+    assert entry["themes"] == []
 
 
 def test_add_ticker_without_name(tmp_path):
@@ -57,7 +57,19 @@ def test_add_ticker_without_name(tmp_path):
     assert result["added"] is True
     data = json.loads(wl.read_text())
     entry = data["us_stock"][0]
-    assert "name" not in entry
+    assert entry["company"] is None
+    assert entry["tier"] == "watch"
+
+
+def test_add_ticker_with_tier_and_themes(tmp_path):
+    wl = tmp_path / "watchlist.json"
+    result = add_ticker(wl, ticker="600519.SH", market="a_stock",
+                        name="贵州茅台", tier="core", themes=["白酒", "消费"])
+    assert result["added"] is True
+    data = json.loads(wl.read_text())
+    entry = data["a_stock"][0]
+    assert entry["tier"] == "core"
+    assert entry["themes"] == ["白酒", "消费"]
 
 
 def test_add_duplicate_is_noop(tmp_path):
@@ -69,14 +81,6 @@ def test_add_duplicate_is_noop(tmp_path):
 
     data = json.loads(wl.read_text())
     assert len(data["a_stock"]) == 1
-
-
-def test_add_ticker_custom_added_by(tmp_path):
-    wl = tmp_path / "watchlist.json"
-    result = add_ticker(wl, ticker="TSLA", market="us_stock", added_by="system")
-    assert result["added"] is True
-    data = json.loads(wl.read_text())
-    assert data["us_stock"][0]["added_by"] == "system"
 
 
 # ---------------------------------------------------------------------------

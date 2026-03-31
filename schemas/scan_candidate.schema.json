@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["primary_ticker", "direction", "confidence", "thesis", "evidence"],
+  "properties": {
+    "primary_ticker": {"type": "string"},
+    "related_tickers": {"type": "array", "items": {"type": "string"}, "default": []},
+    "direction": {"enum": ["long", "short", "neutral"]},
+    "confidence": {"enum": ["high", "medium", "low"]},
+    "thesis": {"type": "string", "minLength": 5},
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["fact_id", "relevance_score", "snippet"],
+        "properties": {
+          "fact_id": {"type": "string"},
+          "relevance_score": {"type": "number", "minimum": 0, "maximum": 1},
+          "snippet": {"type": "string"}
+        }
+      }
+    },
+    "suggested_entry": {"type": ["number", "null"]},
+    "suggested_exit": {"type": ["number", "null"]},
+    "stop_loss": {"type": ["number", "null"]},
+    "time_horizon": {"enum": ["1d", "3d", "1w", "1m", null]},
+    "risk_factors": {"type": "array", "items": {"type": "string"}, "default": []}
+  }
+}

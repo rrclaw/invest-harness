@@ -148,6 +148,34 @@ class KnowledgePipeline:
 
     # --- Curated Layer ---
 
+    def update_source_weight(self, fact_id: str, new_weight: float) -> bool:
+        """Update source_weight for a normalized fact in JSONL files.
+
+        Clamps to [0.1, 1.0]. Returns True if found and updated.
+        """
+        new_weight = max(0.1, min(1.0, new_weight))
+        normalized_dir = self._dir / "normalized"
+        for jsonl_file in normalized_dir.rglob("*.jsonl"):
+            lines = jsonl_file.read_text().strip().split("\n")
+            updated = False
+            new_lines = []
+            for line in lines:
+                if not line.strip():
+                    continue
+                fact = json.loads(line)
+                if fact.get("fact_id") == fact_id:
+                    fact["source_weight"] = new_weight
+                    updated = True
+                new_lines.append(json.dumps(fact, ensure_ascii=False))
+            if updated:
+                jsonl_file.write_text("\n".join(new_lines) + "\n")
+                try:
+                    self._chroma.update_fact_metadata(fact_id, {"source_weight": new_weight})
+                except Exception:
+                    pass
+                return True
+        return False
+
     def add_curated_insight(self, insight: dict) -> dict:
         """Write curated insight to JSONL and index in ChromaDB."""
         # Determine file based on presence of consensus_id

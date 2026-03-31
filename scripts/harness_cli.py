@@ -8,6 +8,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+import hashlib
+import logging
+from datetime import datetime
+
 from lib.alert import AlertManager
 from lib.config import HarnessConfig
 from lib.db import get_connection, init_db
@@ -21,6 +25,8 @@ from scripts.ingest import run_ingest
 from scripts.lock_hypothesis import check_and_lock
 from scripts.post_verify import run_post_verify
 from scripts.rule_audit import run_audit
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -298,6 +304,221 @@ def cmd_backup(args, ctx: HarnessContext) -> dict:
     return result
 
 
+def _default_llm_call(prompt: str, *, config=None) -> str:
+    """Simple LLM call via OpenAI-compatible API using env vars."""
+    import os
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise RuntimeError("openai package required for LLM calls. pip install openai")
+
+    client = OpenAI(
+        api_key=os.environ.get("LLM_API_KEY", ""),
+        base_url=os.environ.get("LLM_BASE_URL"),
+    )
+    model = os.environ.get("LLM_MODEL", "deepseek-chat")
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+    return resp.choices[0].message.content
+
+
+def _candidate_to_hypothesis(candidate: dict, market: str, date: str) -> dict:
+    """Convert ScanCandidate to hypothesis dict matching existing schema."""
+    return {
+        "market": market,
+        "ticker": candidate["primary_ticker"],
+        "direction": candidate["direction"],
+        "thesis": candidate["thesis"],
+        "entry_price": candidate.get("suggested_entry"),
+        "target_price": candidate.get("suggested_exit"),
+        "stop_loss": candidate.get("stop_loss"),
+        "time_horizon": candidate.get("time_horizon", "1w"),
+        "confidence": candidate["confidence"],
+        "evidence_refs": [e["fact_id"] for e in candidate.get("evidence", [])],
+        "risk_factors": candidate.get("risk_factors", []),
+        "source": "scan_auto",
+    }
+
+
+def cmd_scan(args, ctx: HarnessContext) -> dict:
+    from lib.run_store import RunStore
+    from lib.scanner import Scanner, ScanConfig
+    from lib.watchlist import list_tickers
+
+    store = RunStore(ctx.conn)
+
+    # Load watchlist
+    wl_path = Path(args.watchlist) if args.watchlist else ctx.paths.config_dir / "local" / "watchlist.json"
+    tickers_data = list_tickers(wl_path, market=args.market)
+    tickers = [e["ticker"] for e in tickers_data] if isinstance(tickers_data, list) else []
+
+    if not tickers:
+        return {"status": "skipped", "reason": "empty_watchlist"}
+
+    watchlist_hash = hashlib.sha256(json.dumps(sorted(tickers)).encode()).hexdigest()[:16]
+
+    # Knowledge fingerprint
+    knowledge_fingerprint = "static"
+    try:
+        normalized_dir = ctx.paths.knowledge_dir / "normalized"
+        if normalized_dir.exists():
+            mtimes = [f.stat().st_mtime for f in normalized_dir.rglob("*.jsonl")]
+            if mtimes:
+                knowledge_fingerprint = str(max(mtimes))
+    except Exception:
+        pass
+
+    # Create run (idempotency check)
+    run = store.create_run(
+        phase="scan", market=args.market, trigger_source="cron",
+        watchlist_hash=watchlist_hash, knowledge_fingerprint=knowledge_fingerprint,
+        date=args.date,
+    )
+    if run["status"] == "skipped":
+        return run
+
+    store.update_status(run["run_id"], "running")
+
+    try:
+        from lib.knowledge import KnowledgePipeline
+        from lib.chroma_client import ChromaManager
+
+        chroma = ChromaManager(str(ctx.paths.chroma_dir))
+        knowledge = KnowledgePipeline(
+            ctx.paths.knowledge_dir, chroma,
+            str(ctx.paths.knowledge_dir / "raw" / "seen_hashes.json"),
+        )
+        rules = RuleEngine(ctx.paths.rules_dir).load_for_market(args.market)
+
+        scan_config = ScanConfig()
+        runtime = ctx.config.runtime
+        if "scan" in runtime:
+            for k, v in runtime["scan"].items():
+                if hasattr(scan_config, k):
+                    setattr(scan_config, k, v)
+
+        scanner = Scanner(
+            knowledge=knowledge, chroma=chroma, run_store=store,
+            llm_call=_default_llm_call, rules=rules, config=scan_config,
+        )
+
+        result = scanner.scan(market=args.market, date=args.date, watchlist_tickers=tickers)
+
+        # Save candidates to run_store
+        for c in result["candidates"]:
+            store.save_candidate(
+                run_id=run["run_id"], market=args.market,
+                primary_ticker=c["primary_ticker"],
+                related_tickers=c.get("related_tickers", []),
+                direction=c["direction"], confidence=c["confidence"],
+                thesis=c["thesis"], evidence=c.get("evidence", []),
+                auto_action=c["auto_action"],
+                suggested_entry=c.get("suggested_entry"),
+                suggested_exit=c.get("suggested_exit"),
+                stop_loss=c.get("stop_loss"),
+                time_horizon=c.get("time_horizon"),
+                risk_factors=c.get("risk_factors", []),
+            )
+
+        # Handle auto-lock hypotheses
+        hyp_mgr = HypothesisManager(ctx.paths.hypotheses_dir)
+        hypotheses = []
+        for c in result["candidates"]:
+            if c["auto_action"] in ("auto_lock", "await_approval"):
+                hyp = _candidate_to_hypothesis(c, args.market, args.date)
+                hyp_mgr.save_draft(hyp, args.date)
+                if c["auto_action"] == "auto_lock":
+                    hyp_mgr.lock(args.date, args.market, approved_by="system_auto_lock")
+                hypotheses.append(hyp)
+
+        # Save artifacts
+        artifacts_dir = ctx.paths.root / "scans" / args.date / run["batch_id"]
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        (artifacts_dir / "candidates.json").write_text(
+            json.dumps(result["candidates"], ensure_ascii=False, indent=2)
+        )
+
+        store.update_status(run["run_id"], "completed", artifacts={
+            "candidates_path": str(artifacts_dir / "candidates.json"),
+            "candidate_count": len(result["candidates"]),
+        })
+
+        return {
+            "run_id": run["run_id"],
+            "batch_id": run["batch_id"],
+            "status": "completed",
+            "summary": result["summary"],
+            "candidates": result["candidates"],
+            "hypotheses_created": len(hypotheses),
+        }
+
+    except Exception as e:
+        logger.exception("Scan failed")
+        store.update_status(run["run_id"], "failed", error=str(e))
+        return {"run_id": run["run_id"], "status": "failed", "error": str(e)}
+
+
+def cmd_feedback(args, ctx: HarnessContext) -> dict:
+    proposal_id = args.approve_rule or args.reject_rule
+    approved = args.approve_rule is not None
+
+    date = args.date or datetime.now().strftime("%Y%m%d")
+    proposals_path = ctx.paths.reviews_dir / date / "rule_proposals.json"
+    if not proposals_path.exists():
+        return {"status": "error", "error": f"No rule proposals found for {date}"}
+
+    proposals = json.loads(proposals_path.read_text())
+    target = None
+    for p in proposals:
+        if p.get("proposal_id") == proposal_id:
+            target = p
+            break
+
+    if not target:
+        return {"status": "error", "error": f"Proposal {proposal_id} not found"}
+
+    from lib.feedback_engine import FeedbackEngine
+    engine = FeedbackEngine(
+        knowledge=None, chroma=None, llm_call=None,
+        rules=RuleEngine(ctx.paths.rules_dir).load_active(),
+    )
+    result = engine.apply_rule_proposal(target, approved=approved, reason=args.reason)
+
+    if approved and target.get("action") == "deprecate" and target.get("rule_id"):
+        re = RuleEngine(ctx.paths.rules_dir)
+        rules = re.load_all()
+        for r in rules:
+            if r.rule_id == target["rule_id"]:
+                re.update_status(r.rule_id, "deprecated", r.source_file, target.get("rationale"))
+                break
+
+    # Update proposals file
+    proposals_path.write_text(json.dumps(proposals, ensure_ascii=False, indent=2))
+
+    return {"status": "completed", "proposal_id": proposal_id, "action": "approved" if approved else "rejected"}
+
+
+def cmd_watchlist(args, ctx: HarnessContext) -> dict:
+    from lib.watchlist import add_ticker, remove_ticker, list_tickers, detect_market
+
+    wl_path = ctx.paths.config_dir / "local" / "watchlist.json"
+
+    if args.watchlist_action == "add":
+        market = args.market or detect_market(args.ticker)
+        return add_ticker(wl_path, ticker=args.ticker, market=market, name=args.name)
+    elif args.watchlist_action == "remove":
+        market = args.market or detect_market(args.ticker)
+        return remove_ticker(wl_path, ticker=args.ticker, market=market)
+    elif args.watchlist_action == "list":
+        result = list_tickers(wl_path, market=args.market)
+        return {"watchlist": result}
+    else:
+        return {"error": "Unknown watchlist action. Use: add, remove, list"}
+
+
 COMMAND_HANDLERS = {
     "ingest": cmd_ingest,
     "hypothesis": cmd_hypothesis,
@@ -307,6 +528,9 @@ COMMAND_HANDLERS = {
     "rule_update": cmd_rule_update,
     "rule_audit": cmd_rule_audit,
     "backup": cmd_backup,
+    "scan": cmd_scan,
+    "feedback": cmd_feedback,
+    "watchlist": cmd_watchlist,
 }
 
 
@@ -397,6 +621,36 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not send backup summary through transport",
     )
+
+    # scan
+    scan = subparsers.add_parser("scan", help="Scan knowledge base for investment opportunities")
+    scan.add_argument("--market", required=True, choices=["a_stock", "hk_stock", "us_stock", "polymarket"])
+    scan.add_argument("--date", required=True, help="Date YYYYMMDD")
+    scan.add_argument("--watchlist", help="Override watchlist file path")
+    scan.add_argument("--no-notify", action="store_true")
+
+    # feedback
+    feedback = subparsers.add_parser("feedback", help="Apply or reject rule proposals")
+    fb_group = feedback.add_mutually_exclusive_group(required=True)
+    fb_group.add_argument("--approve-rule", help="Approve a rule proposal by ID")
+    fb_group.add_argument("--reject-rule", help="Reject a rule proposal by ID")
+    feedback.add_argument("--reason", help="Rejection reason")
+    feedback.add_argument("--date", help="Review date to find proposals")
+    feedback.add_argument("--no-notify", action="store_true")
+
+    # watchlist
+    watchlist = subparsers.add_parser("watchlist", help="Manage watchlist tickers")
+    wl_sub = watchlist.add_subparsers(dest="watchlist_action")
+    wl_add = wl_sub.add_parser("add")
+    wl_add.add_argument("--ticker", required=True)
+    wl_add.add_argument("--market", help="Auto-detected if not provided")
+    wl_add.add_argument("--name", help="Display name")
+    wl_rem = wl_sub.add_parser("remove")
+    wl_rem.add_argument("--ticker", required=True)
+    wl_rem.add_argument("--market", help="Auto-detected if not provided")
+    wl_list = wl_sub.add_parser("list")
+    wl_list.add_argument("--market", help="Filter by market")
+    watchlist.add_argument("--no-notify", action="store_true")
 
     return parser
 

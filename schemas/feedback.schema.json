@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["feedback_id", "run_id"],
+  "properties": {
+    "feedback_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "source_hypothesis_id": {"type": ["string", "null"]},
+    "verdict": {"enum": ["hit", "partial_hit", "miss", "invalidated", null]},
+    "weight_adjustments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fact_id", "old_weight", "new_weight", "reason"],
+        "properties": {
+          "fact_id": {"type": "string"},
+          "old_weight": {"type": "number"},
+          "new_weight": {"type": "number"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "rule_proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["proposal_id", "action", "status"],
+        "properties": {
+          "proposal_id": {"type": "string"},
+          "action": {"enum": ["add", "modify", "deprecate"]},
+          "rule_id": {"type": ["string", "null"]},
+          "title": {"type": "string"},
+          "diff": {"type": "string"},
+          "rationale": {"type": "string"},
+          "status": {"enum": ["pending_approval", "approved", "rejected"]}
+        }
+      }
+    },
+    "lessons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["insight_text", "category"],
+        "properties": {
+          "insight_text": {"type": "string"},
+          "category": {"enum": ["timing", "sector", "sentiment", "methodology", "risk"]},
+          "tickers": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

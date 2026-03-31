@@ -23,11 +23,22 @@
       "polymarket"
     ],
     "adapters": {
-      "a_stock": "tushare",
-      "hk_stock": "yahoo",
-      "us_stock": "yahoo",
-      "polymarket": "polymarket"
+      "a_stock": {"primary": "tushare", "fallback": "akshare"},
+      "hk_stock": {"primary": "yfinance", "fallback": null},
+      "us_stock": {"primary": "yfinance", "fallback": null},
+      "polymarket": {"primary": "clob_api", "fallback": null}
     }
+  },
+  "scan": {
+    "lookback_days": 3,
+    "vector_top_k": 5,
+    "max_facts_per_ticker": 10,
+    "max_snippet_chars": 200,
+    "max_insights_per_ticker": 5,
+    "min_relevance_score": 0.3,
+    "auto_lock_min_evidence": 2,
+    "auto_lock_min_sources": 2,
+    "auto_lock_max_miss_rate": 0.7
   },
   "rules": {
     "default_rule_files": [

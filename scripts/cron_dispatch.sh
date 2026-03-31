@@ -73,7 +73,7 @@ print(hours)
 }
 
 # --- Known Tasks ---
-KNOWN_TASKS="pre_market lock_check polling post_market nightly_review info_digest chroma_decay next_day_draft cold_backup rule_audit"
+KNOWN_TASKS="pre_market lock_check polling post_market nightly_review info_digest chroma_decay next_day_draft cold_backup rule_audit invest-loop"
 
 # --- Main Dispatch ---
 log "START: task=${TASK} market=${MARKET} date=${TODAY}"
@@ -137,10 +137,38 @@ case "$TASK" in
         "$PYTHON" -m scripts.harness_cli --project-root "$HARNESS_DIR" rule_audit \
             --date "$TODAY" 2>&1 | tee -a "$LOG_FILE"
         ;;
+    invest-loop)
+        # Unified invest-loop dispatch — passes through to OpenClaw skill
+        SKILL_DISPATCH="$HOME/.openclaw/workspace/skills/invest-loop/scripts/dispatch.sh"
+        if [[ -x "$SKILL_DISPATCH" ]]; then
+            "$SKILL_DISPATCH" --phase "$2" --market "${3:-global}" --date "$(date +%Y%m%d)" --trigger cron
+        else
+            log "ERROR: invest-loop skill not found at $SKILL_DISPATCH"
+            exit 1
+        fi
+        ;;
     *)
         log "ERROR: Unknown task: ${TASK}"
         exit 1
         ;;
 esac
+
+# === CRONTAB REFERENCE (install via: crontab -e) ===
+# # Invest Loop: Scan (pre-market)
+# 30 8  * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop scan a_stock
+# 00 9  * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop scan hk_stock
+# 30 21 * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop scan us_stock
+# 00 20 * * *    cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop scan polymarket
+#
+# # Invest Loop: Verify (post-market)
+# 30 15 * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop verify a_stock
+# 30 16 * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop verify hk_stock
+# 00 5  * * 2-6  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop verify us_stock
+#
+# # Invest Loop: Polymarket Watcher (daily)
+# 30 20 * * *    cd ~/invest_harness && python3.11 -m scripts.polymarket_watcher
+#
+# # Invest Loop: Nightly Review
+# 00 21 * * 1-5  cd ~/invest_harness && ./scripts/cron_dispatch.sh invest-loop review
 
 log "END: task=${TASK} market=${MARKET}"

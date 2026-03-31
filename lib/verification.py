@@ -4,7 +4,46 @@ Compares hypothesis predictions against actuals across four dimensions:
 direction, magnitude, time_window, cause.
 """
 
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+
+
+def fetch_actuals(*, ticker: str, market: str, date: str,
+                  adapters: dict) -> dict | None:
+    """Fetch post-market actuals for a ticker using adapter with fallback.
+
+    Args:
+        ticker: Ticker symbol (e.g. "000001.SZ")
+        market: Market name (a_stock, hk_stock, us_stock, polymarket)
+        date: Date string YYYYMMDD
+        adapters: {"primary": adapter, "fallback": adapter|None}
+
+    Returns:
+        dict with open, high, low, close, volume, date, source or None if all fail.
+    """
+    for label in ("primary", "fallback"):
+        adapter = adapters.get(label)
+        if adapter is None:
+            continue
+        try:
+            bars = adapter.get_daily_bars(ticker, date, date)
+            if bars:
+                bar = bars[0]
+                return {
+                    "open": bar.open,
+                    "high": bar.high,
+                    "low": bar.low,
+                    "close": bar.close,
+                    "volume": bar.volume,
+                    "date": bar.date,
+                    "source": label,
+                }
+        except Exception as e:
+            logger.warning(f"{label} adapter failed for {ticker}: {e}")
+            continue
+    return None
 
 
 class Verdict:

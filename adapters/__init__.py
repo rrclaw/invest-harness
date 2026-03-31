@@ -16,7 +16,7 @@ def get_adapter(market: str, **kwargs) -> MarketDataAdapter:
     ``get_quote()`` or ``get_daily_bars()`` is actually called.
 
     Args:
-        market: One of 'a_stock', 'hk_stock', 'us_stock', 'polymarket'.
+        market: One of 'a_stock', 'a_stock_akshare', 'hk_stock', 'us_stock', 'polymarket', 'yfinance'.
         **kwargs: Adapter-specific config (e.g., tushare_token, polymarket_api_url).
 
     Raises:
@@ -33,6 +33,11 @@ def get_adapter(market: str, **kwargs) -> MarketDataAdapter:
             )
         return TushareAdapter(token=token)
 
+    if market == "a_stock_akshare":
+        from adapters.adapter_akshare import AkshareAdapter
+
+        return AkshareAdapter()
+
     if market in ("hk_stock", "us_stock"):
         from adapters.adapter_yahoo import YahooAdapter
 
@@ -46,5 +51,10 @@ def get_adapter(market: str, **kwargs) -> MarketDataAdapter:
                 "polymarket_api_url", "https://gamma-api.polymarket.com"
             )
         )
+
+    if market == "yfinance":
+        from adapters.adapter_yfinance import YfinanceAdapter
+
+        return YfinanceAdapter()
 
     raise ValueError(f"Unknown market: {market!r}")
